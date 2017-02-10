@@ -44,14 +44,14 @@ const NUM_COINS = 100;
   coins: {},
 }; */
 
-exports.addPlayer = (name, io, socket) => {
+exports.addPlayer = (name) => {
   return client.sismemberAsync('usednames', name).then((res) => {
     if (res === 1 || name.length === 0 || name.length > MAX_PLAYER_NAME_LENGTH) {
       return false;
     } else {
       return client.saddAsync('usednames', name).then((res2) => {
         return client.setAsync(`player:${name}`, randomPoint(WIDTH, HEIGHT).toString()).then((res3) => {
-          return client.zaddAsync('scores', 0, name).((res4) => {
+          return client.zaddAsync('scores', 0, name).then((res4) => {
             return true;
           });
         });
@@ -64,7 +64,7 @@ function placeCoins() {
   permutation(WIDTH * HEIGHT).slice(0, NUM_COINS).forEach((position, i) => {
     const coinValue = (i < 50) ? 1 : (i < 75) ? 2 : (i < 95) ? 5 : 10;
     const index = `${Math.floor(position / WIDTH)},${Math.floor(position % WIDTH)}`;
-    return client.hsetAsync('coins', index, coinValue).then((res) => {});
+    client.hsetAsync('coins', index, coinValue).then((res) => {});
   });
 }
 
@@ -99,7 +99,7 @@ exports.state = () => {
         });
       });
     });
-  };
+  });
 }
 
 exports.move = (direction, name) => {
@@ -107,18 +107,18 @@ exports.move = (direction, name) => {
   if (delta) {
     const playerKey = `player:${name}`;
     let [x, y] = [0, 0];
-    return client.getAsync(playerKey).then((res) => {
+    client.getAsync(playerKey).then((res) => {
       [x, y] = res.split(',');
       const [newX, newY] = [clamp(+x + delta[0], 0, WIDTH - 1), clamp(+y + delta[1], 0, HEIGHT - 1)];
-      return client.hgetAsync('coins', `${newX},${newY}`).then((res2) => {
+      client.hgetAsync('coins', `${newX},${newY}`).then((res2) => {
         if (res2) {
-          return client.zincrbyAsync('scores', res2, name).then((res3) => {
-            return client.hdelAsync('coins', `${newX}, ${newY}`);
+          client.zincrbyAsync('scores', res2, name).then((res3) => {
+            client.hdelAsync('coins', `${newX}, ${newY}`);
           });
         }
-        return client.setAsync(playerKey, `${newX},${newY}`).then((res3) => {
+        client.setAsync(playerKey, `${newX},${newY}`).then((res3) => {
           // When all coins collected, generate a new batch.
-          return client.hlenAsync('coins').then((res4) => {
+          client.hlenAsync('coins').then((res4) => {
             if (res4 === 0) {
               placeCoins();
             }
